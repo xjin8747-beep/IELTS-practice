@@ -12,6 +12,58 @@ import verify_tauri_bundle
 import verify_updater_manifest
 
 
+def top_level_block(document: str, key: str) -> str:
+    lines = document.splitlines()
+    start = next(
+        (index for index, line in enumerate(lines) if line == f"{key}:"),
+        None,
+    )
+    if start is None:
+        raise AssertionError(f"missing top-level workflow key: {key}")
+
+    end = len(lines)
+    for index in range(start + 1, len(lines)):
+        line = lines[index]
+        if line and not line[0].isspace():
+            end = index
+            break
+    return "\n".join(lines[start:end])
+
+
+class WorkflowTriggerTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        root = Path(__file__).resolve().parents[3]
+        workflows = root / ".github/workflows"
+        cls.branch_ci = (workflows / "tauri-ci.yml").read_text(encoding="utf-8")
+        cls.release = (workflows / "release.yml").read_text(encoding="utf-8")
+
+    def test_branch_ci_runs_gates_without_packaging_the_desktop_app(self) -> None:
+        trigger = top_level_block(self.branch_ci, "on")
+        self.assertIn("push:", trigger)
+        self.assertIn("branches:", trigger)
+        self.assertNotIn("tags:", trigger)
+
+        for forbidden in (
+            "cargo tauri build",
+            "tauri-apps/tauri-action",
+            "packaged-e2e:",
+            "tauri-build:",
+        ):
+            self.assertNotIn(forbidden, self.branch_ci)
+
+    def test_release_is_tag_only_and_owns_desktop_packaging(self) -> None:
+        trigger = top_level_block(self.release, "on")
+        self.assertIn("push:", trigger)
+        self.assertIn("tags:", trigger)
+        self.assertIn("- 'v*'", trigger)
+        self.assertNotIn("branches:", trigger)
+        self.assertNotIn("pull_request:", trigger)
+        self.assertNotIn("workflow_dispatch:", trigger)
+        self.assertIn("cargo tauri build", self.release)
+        self.assertIn("tauri-apps/tauri-action", self.release)
+
+
 class ReleaseConfigTests(unittest.TestCase):
     def test_overlay_enables_signed_updater_artifacts(self) -> None:
         overlay = prepare_tauri_release.build_overlay(
