@@ -333,3 +333,4 @@
 - 不恢复随机 CDP 端口、90 秒等待、三次重试或吞掉原生日志的旧补丁。
 - U1-U24 定向视觉脚本由一个 runner 启动一次 preview server 后串行执行；不为每组重复安装浏览器、构建前端或启动服务。
 - CI 不调用真实 AI provider，不新增 crate、通用测试框架或产品层抽象。
+- 普通 branch/PR CI 只执行 static、Rust workspace 和 Vue visual/state 三类门禁；Tauri executable、packaged WebView IPC 与跨平台 bundle 仅在 tag release 构建。

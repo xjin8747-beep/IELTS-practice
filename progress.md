@@ -389,3 +389,4 @@
 - packaged run 在 session 创建后窗口关闭；核验发现干净 runner 的 `--no-bundle` 产物旁没有 `reading`/`writing-topics`，而本机恰有三天前完整 bundle 的残留目录，导致先前本地 packaged 假绿。
 - packaged runner 改为从 `tauri.conf.json` 读取结构化 resource map，每次把 exe 与声明资源复制到全新临时 runtime 目录再启动，并在结束后清理；不再依赖 `target/release` 残留。
 - 新临时 runtime packaged E2E 全绿：Vue routes、reading IPC、Agent IPC、bundled resources、性能、提交、备份、更新与 SQLite restart 全部通过；metadata 明确记录独立 staged runtime 路径。
+- 用户明确普通 commit push 不应构建应用；已取消仍包含 packaged/bundle 的 run `31378255691`，准备从 `tauri-ci` 删除 packaged executable 与三平台 bundle jobs，只在 tag `release.yml` 保留这些构建。
