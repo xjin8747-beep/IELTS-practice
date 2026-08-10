@@ -812,11 +812,11 @@ const isApiFormUrlLinked = ref(true)
 const isApplyingProviderDefault = ref(false)
 const apiForm = ref({
   id: null,
-  config_name: '',
-  provider: 'openai',
-  base_url: 'https://api.openai.com/v1',
+  config_name: 'DeepSeek',
+  provider: 'deepseek',
+  base_url: 'https://api.deepseek.com/v1',
   api_key: '',
-  default_model: 'gpt-4o-mini'
+  default_model: 'deepseek-chat'
 })
 
 const promptEntries = ref([])
@@ -1058,11 +1058,11 @@ function getDeleteBlockedReason(item) {
 function resetApiForm() {
   apiForm.value = {
     id: null,
-    config_name: '',
-    provider: 'openai',
-    base_url: 'https://api.openai.com/v1',
+    config_name: 'DeepSeek',
+    provider: 'deepseek',
+    base_url: 'https://api.deepseek.com/v1',
     api_key: '',
-    default_model: 'gpt-4o-mini'
+    default_model: 'deepseek-chat'
   }
   isApiFormUrlLinked.value = true
 }

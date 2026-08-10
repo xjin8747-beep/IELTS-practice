@@ -10,6 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '../../../..');
 const GENERATED_ROOT = path.join(REPO_ROOT, 'assets', 'generated', 'reading-exams');
+const EXPLANATION_ROOT = path.join(REPO_ROOT, 'assets', 'generated', 'reading-explanations');
 const MANIFEST_PATH = path.join(GENERATED_ROOT, 'manifest.js');
 
 function fail(message, code = 1) {
@@ -51,14 +52,50 @@ function sha256(text) {
   return crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 }
 
-function exportResourcePack(context, registry, manifest, outputDir) {
+function canonicalFrequency(examId, fallback) {
+  const match = String(examId || '').match(/^p[123]-(high|medium|low)-/i);
+  return match ? match[1].toLowerCase() : (fallback || null);
+}
+
+function mediaMimeType(fileName) {
+  const extension = path.extname(fileName).toLowerCase();
+  if (extension === '.png') return 'image/png';
+  if (extension === '.jpg' || extension === '.jpeg') return 'image/jpeg';
+  if (extension === '.webp') return 'image/webp';
+  if (extension === '.avif') return 'image/avif';
+  if (extension === '.svg') return 'image/svg+xml';
+  return 'application/octet-stream';
+}
+
+function embedLocalMedia(value) {
+  if (typeof value === 'string') {
+    return value.replace(/(?:\.\/)?media\/([^"'<>\s)]+)/g, (reference, fileName) => {
+      const mediaPath = path.join(GENERATED_ROOT, 'media', fileName);
+      if (!fs.existsSync(mediaPath)) return reference;
+      const encoded = fs.readFileSync(mediaPath).toString('base64');
+      return `data:${mediaMimeType(fileName)};base64,${encoded}`;
+    });
+  }
+  if (Array.isArray(value)) return value.map(embedLocalMedia);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, embedLocalMedia(item)]));
+  }
+  return value;
+}
+
+function exportResourcePack(context, registry, explanationRegistry, manifest, outputDir) {
   const resolvedOutput = path.resolve(REPO_ROOT, outputDir);
   const payloadDir = path.join(resolvedOutput, 'payloads');
   fs.mkdirSync(payloadDir, { recursive: true });
 
   const entries = buildEntryList(manifest).map((entry) => {
     const dataset = loadDataset(context, registry, manifest[entry.examId] || entry);
-    const payload = { ...dataset, examId: dataset.examId || entry.examId };
+    const reviewExplanations = loadExplanation(context, explanationRegistry, entry.examId);
+    const payload = embedLocalMedia({
+      ...dataset,
+      examId: dataset.examId || entry.examId,
+      ...(reviewExplanations ? { reviewExplanations } : {})
+    });
     const text = stableJson(payload);
     const file = `payloads/${entry.examId}.json`;
     fs.writeFileSync(path.join(resolvedOutput, file), text, 'utf8');
@@ -68,7 +105,7 @@ function exportResourcePack(context, registry, manifest, outputDir) {
       title: entry.title || payload.meta?.title || entry.examId,
       category: entry.category || payload.meta?.category || null,
       difficulty: payload.meta?.difficulty || null,
-      frequency: payload.meta?.frequency || null,
+      frequency: canonicalFrequency(entry.examId, payload.meta?.frequency),
       sha256: sha256(text)
     };
   });
@@ -100,6 +137,7 @@ function createRegistry() {
 
 function createContext() {
   const registry = createRegistry();
+  const explanationRegistry = createRegistry();
   const context = {
     console,
     setTimeout,
@@ -109,8 +147,18 @@ function createContext() {
   context.window = context;
   context.self = context;
   context.__READING_EXAM_DATA__ = registry;
+  context.__READING_EXPLANATION_DATA__ = explanationRegistry;
   vm.createContext(context);
-  return { context, registry };
+  return { context, registry, explanationRegistry };
+}
+
+function loadExplanation(context, explanationRegistry, examId) {
+  const explanationPath = path.join(EXPLANATION_ROOT, `${examId}.js`);
+  if (!fs.existsSync(explanationPath)) return null;
+  if (!explanationRegistry.has(examId)) {
+    vm.runInContext(readText(explanationPath), context, { filename: explanationPath });
+  }
+  return explanationRegistry.get(examId);
 }
 
 function loadManifest(context) {
@@ -172,11 +220,11 @@ function main() {
   }
 
   const args = parseArgs(process.argv);
-  const { context, registry } = createContext();
+  const { context, registry, explanationRegistry } = createContext();
   const manifest = loadManifest(context);
 
   if (args.outputDir) {
-    exportResourcePack(context, registry, manifest, args.outputDir);
+    exportResourcePack(context, registry, explanationRegistry, manifest, args.outputDir);
     return;
   }
 

@@ -308,6 +308,7 @@ export const practiceCoach = {
             selectedText: payload?.selectedText || '',
             selectedContext: payload?.selectedContext || null,
             focusQuestionNumbers: payload?.focusQuestionNumbers || [],
+            readingContext: payload?.readingContext || null,
             attemptContext: payload?.attemptContext || null
           }
         }
