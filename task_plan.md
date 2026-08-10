@@ -323,7 +323,7 @@
 - [completed] C3. 拆分 static、Rust workspace、packaged Tauri、视觉回归和跨平台 bundle jobs
 - [completed] C4. 增加仓库自有 WebView2/EdgeDriver 精确版本安装器与统一视觉回归 runner
 - [completed] C5. 本地执行 workflow 相关门禁并修复真实失败
-- [in_progress] C6. 提交、推送并等待远端全部门禁给出最终结果
+- [completed] C6. 提交、推送并等待远端全部门禁给出最终结果
 
 ### 固定决策
 

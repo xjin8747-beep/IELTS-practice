@@ -390,3 +390,5 @@
 - packaged runner 改为从 `tauri.conf.json` 读取结构化 resource map，每次把 exe 与声明资源复制到全新临时 runtime 目录再启动，并在结束后清理；不再依赖 `target/release` 残留。
 - 新临时 runtime packaged E2E 全绿：Vue routes、reading IPC、Agent IPC、bundled resources、性能、提交、备份、更新与 SQLite restart 全部通过；metadata 明确记录独立 staged runtime 路径。
 - 用户明确普通 commit push 不应构建应用；已取消仍包含 packaged/bundle 的 run `31378255691`，准备从 `tauri-ci` 删除 packaged executable 与三平台 bundle jobs，只在 tag `release.yml` 保留这些构建。
+- `tauri-ci` 已收缩为 static、Rust workspace、U1-U24 visual/state 三类普通 push 门禁；tag-only `release.yml` 继续负责 packaged WebView IPC、executable 与三平台签名 bundle。
+- 最终普通 push run `31383723592` 全绿：`Vue and static gate`、`Rust workspace tests`、`Vue U1-U24 visual and state regressions`、`CI result` 全部 success，远端实际未展开任何 Tauri 应用构建 job。
