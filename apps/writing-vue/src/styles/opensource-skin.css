@@ -1717,7 +1717,7 @@
 .atlas-source-ui .result-page.result-page .result-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.18fr) minmax(360px, 0.82fr);
-  align-items: stretch;
+  align-items: start;
   gap: 20px;
   max-width: var(--shui-shell-max-width);
   min-height: calc(100vh - 168px);
@@ -1740,13 +1740,14 @@
 
 .atlas-source-ui .result-page.result-page .display-heading {
   font-size: clamp(1.65rem, 2.7vw, 2.15rem);
-  letter-spacing: -0.035em;
+  letter-spacing: 0;
 }
 
 .atlas-source-ui .result-page.result-page .topic-meta,
 .atlas-source-ui .result-page.result-page .score-label,
 .atlas-source-ui .result-page.result-page .metric-label {
   color: var(--atlas-ink-soft);
+  letter-spacing: 0;
 }
 
 .atlas-source-ui .result-page.result-page .essay-body {
@@ -1771,7 +1772,14 @@
 
 .atlas-source-ui .result-page.result-page .view-controls .btn-brand {
   border-color: var(--atlas-accent-ring);
+  background: var(--color-brand-soft-strong);
+  color: var(--atlas-accent-strong);
   box-shadow: var(--lg-shadow-subtle);
+}
+
+.atlas-source-ui .result-page.result-page .view-controls .btn-brand:hover:not(:disabled) {
+  background: var(--color-brand-soft-strong);
+  color: var(--atlas-accent-strong);
 }
 
 .atlas-source-ui .result-page.result-page .right-panel {

@@ -399,3 +399,31 @@
 - packaged Tauri 新路径本地通过，`agent_get_run` 不存在 ID 返回空、`agent_run` 空 prompt 返回 `agent.invalid_request`，证明 Agent commands 在真实 WebView IPC 中注册且最外层错误协议有效，无需真实模型配置。
 - 第二轮视觉矩阵唯一失败是 History tablet/empty 在 `domcontentloaded` 后、route CSS chunk 生效前读取几何；测试原先只等 DOM selector。应等待共享 owner 的 computed `display:grid`，但不降低 180px/160px 高度合同。
 - readiness 修复后定位到另一独立假红：computed min-height 精确为 160px，而 Chromium rect 为 `159.999938px`。CSS 合同仍需硬比较，渲染 rect 应允许 0.5px 子像素误差。
+
+## 2026-08-10 U25 Writing Result 覆盖审计
+
+- `ResultPage.vue` 的 shipping 路由和响应式 skin 已存在，但 U4 只留下临时 HTTP/Playwright 截图，没有可重复的 Result 专用回归。
+- 统一视觉 runner 当前覆盖 U1-U24 的 16 个脚本，packaged flow 只到 Compose；因此 Result 的评分环、四项指标、长反馈、标注错误和移动单列都可能回归而 CI 不知情。
+- opensource 参考树没有 Writing Result 页面，不能搬其 JS/DOM 或臆造视觉 parity；U25 应冻结当前 Vue/Tauri 已完成的 Result 视觉连续性。
+- 最小合同是同一份真实 DTO fixture 的 1440x900、1024x768、390x844、360x800 四视口：无页面横向溢出，1040px 以下单列，640px 以下指标单列，视图控件和标注详情可达，移动端不出现右栏嵌套滚动陷阱。
+- 首轮只新增测试并注册统一 runner；产品修复仅限 `opensource-skin.css` 的 Result route owner，禁止触碰数据加载、评分映射、Tauri command、DTO 或 router。
+- 首轮四视口回归在 desktop 先红：标题、评分标签、指标标签的 computed letter-spacing 分别为 `-1.204px`、`1.2px`、`0.6px`。布局、评分、指标、反馈和 Tauri read contract 在该断点前均已通过；最小修复是由 Result route owner 将字距统一为 0。
+- 字距修复后四视口自动回归全绿，但人工截图暴露两个未断言的视觉缺口：切到 Annotated Errors 后 active 按钮在浅色 surface 上使用近白文字，标签几乎不可见；desktop grid 的 `align-items: stretch` 又让左侧 essay panel 跟随长右栏拉到 2122px，产生大面积空白。
+- 这两个缺口仍属于同一 Result 视觉所有权：active segmented action 应有可辨识的 accent surface/文字对比；双栏 grid 应顶部对齐，让 essay panel 保留自身 min-height 而不是继承右栏内容高度。
+
+## 2026-08-10 Branch CI / Tag Release 触发合同
+
+- 远端普通 push run `31384080982` 只有 static、Rust workspace、Vue visual/state 和聚合结果四个 jobs；日志中没有 `cargo tauri build`、`tauri-action`、packaged E2E 或 bundle job。
+- 后续 HEAD `2da451f19619185e6f41db3fb4155ff748538b0a` 的普通 push run `31389681692` 再次只执行同四类门禁并全部成功；同一 SHA 没有 `Release` run。
+- `tauri-ci.yml` 的 `npm run build` 仅生成 Vue 测试资产，供 Rust workspace 编译和 Playwright 浏览器回归使用；它不会生成 Tauri executable、installer、bundle 或 GitHub Release。
+- 真正的桌面应用构建只存在于 `release.yml`：工作流只监听 `push.tags: ['v*']`，并由 `cargo tauri build --no-bundle` 与 `tauri-apps/tauri-action` 负责 packaged gate 和签名 bundle。
+- 现有 release tests 未锁定 workflow trigger/ownership，容易把 packaged jobs 误加回普通 CI；最小修复是在同一 `release_contract_test.py` 增加两条合同测试，不引入 YAML 依赖或新测试框架。
+- 当前 U25 工作树对 `tauri-ci.yml` 只更新视觉门禁显示名，不改变 `on:`、job DAG 或命令；普通 push 仍不存在 Tauri executable/bundle/release 路径。
+
+## 2026-08-10 U25 独立测试真实性复核
+
+- 两路只读审计一致确认产品改动边界干净：仅 Result route-scoped skin、专用视觉/状态脚本、统一 runner 注册和 CI 展示名；未改 Vue 逻辑、路由、Tauri command/DTO 或后端。
+- 第二路审计发现五条可复现假绿：summary/attempt `submittedAt` 不一致；mock 同时提供 shipping 中关闭的 global Tauri fallback；Original View 没有正文/裁切断言；右栏真实六个 surface 只要求五个；标注详情依赖默认展开而未点击验证 toggle。
+- active view 的浅色文字缺陷已修复，但原断言只排除纯白，且没有覆盖 hover；应计算实际前景/背景对比度并在 hover 后重验 active 状态。
+- 当前统一 runner 的 17 个脚本是“几何/状态断言 + 当前截图 evidence”，不是像素基线系统。只给 U25 引入像素 diff 会形成特殊情况；像素基线若要采用，应作为整个 visual runner 的独立后续工程，不阻塞本切片用精确 DOM/样式合同收口。
+- `1024x768` 已覆盖宽度断点，但 Tauri 最小窗口高度是 720；将 tablet 调整为 `1024x720` 可直接冻结实际 packaged 边界，390/360 仍作为响应式 WebView/可访问性收缩证据。

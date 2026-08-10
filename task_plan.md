@@ -230,10 +230,13 @@
   - 已完成：四状态统一 `.history-list-state` owner；补齐 live/busy/alert 语义、稳定高度、error surface、44px 恢复动作与 reduced-motion spinner
   - 已通过：16 场景四视口回归、人工截图核验、Vue typecheck/build、五组 History 回归、static suite 18/18、packaged Tauri flow、Rust workspace tests
 
-- [cancelled] U25. 下一窄视觉切片审计与冻结（按用户要求停止 UI 搬迁，未实施产品改动）
-  - 盘点尚未形成四视口视觉合同的 shipping Vue 页面与交互状态，以可复现缺口排序
-  - 对照 `F:\workspace\IELTS Atlas` 的视觉证据，只迁移适用于当前 Vue/Tauri 产品的信息层级和交互经验
-  - 冻结一个最小切片后先写 characterization regression，再决定是否修改产品代码
+- [completed] U25. Writing Result 持久化视觉合同
+  - 用真实 `get_history_detail` DTO 形状覆盖完整评分、反馈、计划、长作文和标注错误状态
+  - 覆盖 1440/1024/390/360px，冻结双列到单列、指标布局、视图切换、长文本与滚动所有权
+  - 先把 characterization regression 纳入统一 visual runner；只在当前实现红灯时修改 Result route-scoped skin
+  - 保持 Result 路由、Tauri command/DTO、评测数据映射和 Vue 交互不变，不为 opensource 中不存在的页面臆造第二套结构
+  - 已完成：真实 shipping invoke、Original/Annotated 切换、标注展开/收起、六个反馈区块、选中态 rest/hover 对比度与最小窗口几何均有直接断言
+  - 已通过：四视口专用回归、统一视觉矩阵 17/17、Vue typecheck/build、static suite 18/18、packaged Tauri flow、Rust workspace tests
 
 ## 错误记录
 | 错误 | 尝试 | 处理 |
@@ -309,6 +312,11 @@
 | 首次 `gh run watch` 遭遇 GitHub API `unexpected EOF` | 1 | 不重复实时 watch，改用 `gh run view --json jobs` 快照和 job logs API |
 | Linux bundle verifier 把 RPM staging 的零字节 `empty` 文件当发布产物 | 1 | 区分完整证据清单与可发布产物；只对 installer/updater 执行非空门禁，并增加正反 characterization tests |
 | packaged gate 在本地依赖旧 bundle 留下的 `target/release` 资源目录 | 1 | 每次按 Tauri resource map 把 exe 与资源放进全新临时 runtime，再启动 WebDriver；消除残留假绿 |
+| 本次 goal 恢复时 session-catchup 再次受 Windows GBK Unicode 输出影响 | 1 | 不重复失败环境；设置 `PYTHONIOENCODING=utf-8` 后恢复成功，并以 git/计划文件核验工作树事实 |
+| partial index patch 经 PowerShell 管道带入 CR whitespace | 1 | 先完整暂存 workflow，再用 `--whitespace=fix` 只把 U25 标签退回 unstaged；`git diff --cached --check` 通过 |
+| goal continuation 首次 session-catchup 仍使用 GBK 输出 | 1 | 立即改用 `PYTHONIOENCODING=utf-8`/`PYTHONUTF8=1`，成功恢复当前 git 与计划上下文 |
+| U25 专用 runner 首次仍访问默认 4175 | 1 | 发现脚本在导入时读取 BASE_URL；重跑方案改为先设置动态端口环境再导入测试模块 |
+| feature 分支 protection API 返回 GitHub 404 | 1 | 该分支没有可读取的保护规则；不重复查询，直接以 workflow job 名和远端 run 结果验证触发合同 |
 
 ## 2026-08-10 CI 门禁重构
 
@@ -334,3 +342,5 @@
 - U1-U24 定向视觉脚本由一个 runner 启动一次 preview server 后串行执行；不为每组重复安装浏览器、构建前端或启动服务。
 - CI 不调用真实 AI provider，不新增 crate、通用测试框架或产品层抽象。
 - 普通 branch/PR CI 只执行 static、Rust workspace 和 Vue visual/state 三类门禁；Tauri executable、packaged WebView IPC 与跨平台 bundle 仅在 tag release 构建。
+- branch/tag 构建所有权由 `release_contract_test.py` 自动锁定：普通 CI 禁止 `cargo tauri build`/`tauri-action`，`v*` Tag release 必须独占应用打包。
+- [completed] C7. 提交 workflow 触发合同并用新的普通 push 证明远端只执行门禁、不构建桌面应用

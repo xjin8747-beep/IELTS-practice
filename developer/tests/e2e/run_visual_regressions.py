@@ -26,6 +26,7 @@ BASE_URL_ENV_NAMES = (
     "SETTINGS_VISUAL_BASE_URL",
     "TOPIC_VISUAL_BASE_URL",
     "HISTORY_VISUAL_BASE_URL",
+    "WRITING_RESULT_VISUAL_BASE_URL",
     "READING_LIBRARY_VISUAL_BASE_URL",
     "READING_LIBRARY_TABS_VISUAL_BASE_URL",
     "READING_SUITE_SELECTOR_VISUAL_BASE_URL",
@@ -52,6 +53,12 @@ SCRIPT_GROUPS = (
             "history_filter_analytics_visual_check.py",
             "history_record_pagination_visual_check.py",
             "history_page_states_visual_check.py",
+        ),
+    ),
+    (
+        "writing-result",
+        (
+            "writing_result_visual_check.py",
         ),
     ),
     (
@@ -227,7 +234,7 @@ def main() -> int:
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "status": "passed" if passed else "failed",
         "exitCode": 0 if passed else 1,
-        "target": "vue-u1-u24-visual-state-regressions",
+        "target": "vue-u1-u25-visual-state-regressions",
         "baseUrl": base_url,
         "expectedScripts": expected_count,
         "executedScripts": len(results),

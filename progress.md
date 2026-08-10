@@ -392,3 +392,49 @@
 - 用户明确普通 commit push 不应构建应用；已取消仍包含 packaged/bundle 的 run `31378255691`，准备从 `tauri-ci` 删除 packaged executable 与三平台 bundle jobs，只在 tag `release.yml` 保留这些构建。
 - `tauri-ci` 已收缩为 static、Rust workspace、U1-U24 visual/state 三类普通 push 门禁；tag-only `release.yml` 继续负责 packaged WebView IPC、executable 与三平台签名 bundle。
 - 最终普通 push run `31383723592` 全绿：`Vue and static gate`、`Rust workspace tests`、`Vue U1-U24 visual and state regressions`、`CI result` 全部 success，远端实际未展开任何 Tauri 应用构建 job。
+
+## 2026-08-10 U25 Writing Result visual contract
+
+- 持续 UI 目标恢复；工作树与远端均位于 `e96f42f` 且无未提交改动，先前交付边界仍为已验收的 U24。
+- `planning-with-files` catch-up 首次因 Windows GBK 无法输出 Unicode 标记失败；改用 `PYTHONIOENCODING=utf-8` 成功恢复，并完整重读 task plan、findings 和 progress。
+- U25 从 cancelled 重开为 in progress；冻结为 Writing Result 四视口持久化视觉合同，先新增 characterization regression，不先改产品 CSS。
+- opensource 没有 Writing Result 对应页面；本切片只冻结当前 Vue/Tauri 已迁移的视觉层级，保持 Result 数据流、Tauri DTO、Application/Agent/SQLite 边界不变。
+- 新增 `writing_result_visual_check.py` 并注册统一 visual runner；Vue build 与 Python compile 通过。
+- 首轮 dedicated 回归在 desktop 捕获非零字距：heading `-1.204px`、score label `1.2px`、metric label `0.6px`；其前置布局/内容/命令合同均通过。
+- 仅在 Result route-scoped skin 把 heading/score/metric label 字距设为 0，继续复跑四视口以寻找下一真实缺口。
+- 字距修复后 dedicated 四视口回归全绿；完整 DTO、四项评分、1024 单列、640 指标单列、标注详情和移动无内层滚动均通过。
+- 人工核验四张 full-page 截图时发现 active Annotated Errors 文案在浅色按钮上近乎不可见，且 desktop essay panel 被右栏拉伸到 2122px 后留下大面积空白；自动测试将补对比/拉伸合同后再修复。
+- fixture 已改为 Rust 真实 `HistoryDetailResponse`：camelCase `AttemptRecord` 与嵌套 `WritingEvaluationV4.score/diagnosis/feedback`，删除测试专用的 `wordCount/topic_source/model_name` 和平铺 legacy evaluation 字段。
+- 加严后的首轮测试在 desktop selected view 白字对比处按预期红灯；Result owner 现以 accent-soft/deep-accent 表达选中态，并把双栏从 stretch 改为 start，避免右栏长反馈拉伸左栏。
+
+## 2026-08-10 Branch CI / Tag Release 边界加固
+
+- 核验本地 workflow 与远端 run `31384080982`：普通 commit push 已不构建 Tauri executable/bundle，最新四个门禁 jobs 全绿；Tag-only `Release` 独占 `cargo tauri build` 与 `tauri-action`。
+- 两个并行只读审计代理均被服务端 429 限流，未产生可用结论；改用 `gh run view`、workflow 源码和远端 job logs 直接核验。
+- 将普通 CI 的两个 Vue 步骤改名为 test/browser-test assets，明确不产生 desktop package；新增 branch/tag workflow ownership tests。
+- `release_contract_test.py -v` 13/13 通过，`git diff --check` 通过；等待全量静态与 packaged 门禁、聚焦提交和新的远端 push 证据。
+- 全量 static suite `18/18` 通过；内含 workflow ownership tests `13/13`、Vue typecheck/build、Rust workspace check 与数据真相回归。
+- 按仓库本地验收要求执行 packaged Tauri flow，15 项检查全部通过；该本地测试构建不改变远端 branch CI，远端仍无 packaged/bundle job。
+- 提交 `2da451f ci: enforce tag-only desktop packaging` 已推送到 `origin/IELTS-WRITING-FEAT`；提交仅包含 `tauri-ci.yml` 与 workflow ownership tests，U25 工作树改动未被暂存。
+- 远端普通 push run `31389681692` 最终全绿：static、Rust workspace、Vue U1-U24 visual/state 和 `CI result` 全部 success；job/step 清单没有 Tauri executable、packaged E2E、bundle、签名或发布步骤。
+- `gh run list --workflow Release --commit 2da451f...` 返回空列表，确认同一次普通 commit 没有触发 Tag-only Release；远端分支 HEAD 已精确指向 `2da451f19619185e6f41db3fb4155ff748538b0a`。
+
+## 2026-08-10 U25 收口复核
+
+- 恢复 U25 未提交工作树并完整重读持久计划；session catch-up 首次受 GBK 影响，固定 UTF-8 后成功。
+- 两路独立只读审计完成：CSS/范围审计未发现现存布局缺陷；合同审计定位五条测试假绿和 active hover/对比度覆盖不足。
+- 决定只加固 U25 真实状态合同，不在单个页面引入与其他 16 个脚本不一致的像素基线机制；下一步修改仅限 `writing_result_visual_check.py`。
+- 加固 `writing_result_visual_check.py`：真实 Rust 时间戳、仅 `__TAURI_INTERNALS__` mock、Original 文本/边界/滚动、六个右栏 heading、active rest/hover 对比度、Annotated 首次展开及收起/恢复 toggle；tablet 改为实际最小窗口 `1024x720`。
+- `npm` typecheck/build、Python compile 和 `git diff --check` 通过；专用动态端口四视口回归首次因 import 时机访问默认 4175，修正 harness 调用顺序后四视口全绿，Original/Annotated 双截图均生成。
+- 统一视觉/状态矩阵 `17/17` 全绿，耗时 352.9 秒；U25 作为独立 writing-result group 纳入 evidence，生成 Original/Annotated 共八张当前截图。
+- 人工核验 desktop Original/Annotated、1024x720 Original、390/360 Annotated：选中态可读、左右栏顶部对齐、六个反馈区块完整、正文/标注无裁切、移动导航和页面内容无重叠或横向溢出。
+- 全量门禁通过：static suite `18/18`、packaged Tauri flow 15 项、`cargo test --workspace --locked` 全绿；Application 24 项、Tauri host 21 项及全部 DB/迁移/Agent/写作集成测试均通过。
+- U25 标记 completed；本切片只涉及 Result route skin、视觉合同和统一 runner 注册，未改变 Result 路由、Vue 数据流、Tauri command/DTO、Application/Agent 或 SQLite 边界。
+
+## 2026-08-10 Tag-only desktop build final audit
+
+- 两路独立只读审计逐项核对 `.github/workflows` 与远端 Actions：普通 branch push/PR 只进入 `tauri-ci` 的 static、Rust、Vue visual/state 和聚合门禁；`Release` 只监听 `push.tags: ['v*']`。
+- 远端 HEAD `2da451f19619185e6f41db3fb4155ff748538b0a` 的 run `31389681692` 四项门禁全部成功，没有 Tauri executable、packaged WebView、bundle、签名、安装包 artifact 或发布 job。
+- 旧 run `31378255691` 仍包含 bundle 是切换前历史；从 `ff61ac9` 起连续三个普通 push 均只运行门禁，当前触发合同已真实生效。
+- U25 未提交工作树对 `tauri-ci.yml` 仅把视觉门禁展示范围从 U1-U24 更新为 U1-U25；`on:`、job DAG、打包与发布所有权均未改变。
+- 提交前复验通过：`release_contract_test.py -v` 13/13、Vue typecheck、U25/visual runner Python compile 与 `git diff --check`；其中 branch/tag workflow ownership 两项均为绿色。

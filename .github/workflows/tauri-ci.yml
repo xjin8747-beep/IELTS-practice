@@ -63,7 +63,7 @@ jobs:
         run: cargo test --workspace --locked
 
   visual-regression:
-    name: Vue U1-U24 visual and state regressions
+    name: Vue U1-U25 visual and state regressions
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
