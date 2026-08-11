@@ -186,7 +186,7 @@
           </div>
 
           <div class="editor-actions">
-            <button class="btn btn-secondary" @click="scheduleSave">
+            <button class="btn btn-secondary" @click="scheduleSave()">
               保存草稿
             </button>
             <button
