@@ -297,8 +297,21 @@ async function hydrateSessionState() {
     }
     const state = await evaluate.getSessionState(props.sessionId)
     currentEvaluationId.value = state.evaluationId
-    if (tempDraft.value && !tempDraft.value.task_type) {
-      tempDraft.value.task_type = state.evaluation?.taskType || ''
+    const stateTaskType = normalizeTaskType(
+      state.evaluation?.taskType || state.evaluation?.task_type
+    )
+    const routeTaskType = normalizeTaskType(route.query.taskType)
+    if (!tempDraft.value) {
+      tempDraft.value = {
+        task_type: stateTaskType || routeTaskType || '',
+        mode: '',
+        topic_id: null,
+        topic_text: '',
+        content: '',
+        word_count: 0
+      }
+    } else if (!tempDraft.value.task_type) {
+      tempDraft.value.task_type = stateTaskType || routeTaskType || ''
     }
     const events = Array.isArray(state?.events) ? state.events : []
     for (const event of events) {
@@ -343,9 +356,15 @@ async function handleCancel() {
   }
 }
 
+function normalizeTaskType(value) {
+  const normalized = String(Array.isArray(value) ? (value[0] || '') : (value || '')).trim()
+  return normalized === 'task1' || normalized === 'task2' ? normalized : null
+}
+
 function retryTaskType() {
-  const value = String(tempDraft.value?.task_type || '').trim()
-  return value === 'task1' || value === 'task2' ? value : null
+  return normalizeTaskType(tempDraft.value?.task_type)
+    || normalizeTaskType(route.query.taskType)
+    || normalizeTaskType(fullResult.value?.taskType)
 }
 
 async function handleRetry() {
