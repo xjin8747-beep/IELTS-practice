@@ -79,7 +79,7 @@ impl WritingEvaluationService {
             Err(error) => (Err(error), None, None),
         };
 
-        let result = store.finish(&prepared, score, feedback, review_error)?;
+        let result = store.finish(&prepared, score, feedback, review_error)￿;
         emit_all(
             events,
             result
@@ -146,7 +146,7 @@ fn parse_output(content: &str) -> Result<ProviderOutput, ProviderError> {
         value
             .get("score")
             .cloned()
-            .ok_or_else(|| provider_error("AI evaluation score is missing", false))?,
+            .ok_or_else(|| provider_error("AI evaluation score is missing", false))￿,
     )
     .map_err(|error| provider_error(format!("AI evaluation score invalid: {error}"), false))?;
     validate_score(&score)?;
@@ -154,12 +154,98 @@ fn parse_output(content: &str) -> Result<ProviderOutput, ProviderError> {
         .get("feedback")
         .cloned()
         .ok_or_else(|| provider_error("AI evaluation feedback is missing", true))
-        .and_then(|feedback| {
+        .and_then(|mut feedback| {
+            normalize_feedback_strings(&mut feedback);
             serde_json::from_value(feedback).map_err(|error| {
                 provider_error(format!("AI evaluation feedback invalid: {error}"), true)
             })
         });
     Ok(ProviderOutput { score, feedback })
+}
+
+/// Providers sometimes preserve the requested feedback content but wrap a
+/// nominal string in a small JSON object (for example one key per IELTS
+/// criterion). Keep that useful content instead of degrading the entire
+/// sentence/paragraph review because of a harmless shape variation.
+fn normalize_feedback_strings(feedback: &mut serde_json::Value) {
+    let Some(object) = feedback.as_object_mut() else {
+        return;
+    };
+
+    normalize_string_field(object, "overall");
+    normalize_string_array(object.get_mut("plan"));
+    normalize_string_array(object.get_mut("rewrites"));
+
+    if let Some(paragraphs) = object.get_mut("paragraphs").and_then(|value| value.as_array_mut()) {
+        for paragraph in paragraphs {
+            let Some(paragraph) = paragraph.as_object_mut() else {
+                continue;
+            };
+            normalize_string_field(paragraph, "summary");
+            normalize_string_array(paragraph.get_mut("issues"));
+        }
+    }
+
+    if let Some(sentences) = object.get_mut("sentences").and_then(|value| value.as_array_mut()) {
+        for sentence in sentences {
+            let Some(sentence) = sentence.as_object_mut() else {
+                continue;
+            };
+            for field in ["sentence", "correction", "kind"] {
+                normalize_string_field(sentence, field);
+            }
+        }
+    }
+}
+
+fn normalize_string_field(
+    object: &mut serde_json::Map<String, serde_json::Value>,
+    field: &str,
+) {
+    let Some(value) = object.get_mut(field) else {
+        return;
+    };
+    if !value.is_string() && !value.is_null() {
+        *value = serde_json::Value::String(feedback_text(value));
+    }
+}
+
+fn normalize_string_array(value: Option<&mut serde_json::Value>) {
+    let Some(items) = value.and_then(|value| value.as_array_mut()) else {
+        return;
+    };
+    for item in items {
+        if !item.is_string() {
+            *item = serde_json::Value::String(feedback_text(item));
+        }
+    }
+}
+
+fn feedback_text(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::Null => String::new(),
+        serde_json::Value::Bool(value) => value.to_string(),
+        serde_json::Value::Number(value) => value.to_string(),
+        serde_json::Value::String(value) => value.clone(),
+        serde_json::Value::Array(values) => values
+            .iter()
+            .map(feedback_text)
+            .filter(|value| !value.is_empty())
+            .collect::<Vec<_>>()
+            .join("；"),
+        serde_json::Value::Object(values) => values
+            .iter()
+            .map(|(key, value)| {
+                let text = feedback_text(value);
+                if text.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{key}：{text}")
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("；"),
+    }
 }
 
 fn validate_score(score: &WritingScoreV4) -> Result<(), ProviderError> {
@@ -532,6 +618,33 @@ mod tests {
         let output = parse_output("```json\n{\"score\":{\"overall\":7.0,\"taskResponse\":7.0,\"coherence\":6.5,\"lexical\":7.0,\"grammar\":6.5},\"feedback\":{\"overall\":\"Clear\",\"plan\":[],\"paragraphs\":[],\"sentences\":[],\"rewrites\":[]}}\n```").unwrap();
         assert_eq!(output.score.overall, 7.0);
         assert!(output.feedback.is_ok());
+    }
+
+    #[test]
+    fn normalizes_provider_wrapped_feedback_strings() {
+        let output = parse_output(
+            r#"{
+              "score":{"overall":7.0,"taskResponse":7.0,"coherence":6.5,"lexical":7.0,"grammar":6.5},
+              "feedback":{
+                "overall":{"TR":"观点清楚","CC":"衔接自然"},
+                "plan":[{"step":"练习具体例证"}],
+                "paragraphs":[{"paragraphIndex":1,"summary":{"strength":"立场明确"},"issues":[{"issue":"论证可更具体"}]}],
+                "sentences":[{"sentence":{"original":"This is good."},"correction":{"better":"This is beneficial."},"kind":"lexical"}],
+                "rewrites":[{"example":"This is beneficial."}]
+              }
+            }"#,
+        )
+        .unwrap();
+
+        let feedback = output.feedback.unwrap();
+        assert_eq!(feedback.overall.as_deref(), Some("TR：观点清楚；CC：衔接自然"));
+        assert_eq!(feedback.plan, vec!["step：练习具体例证"]);
+        assert_eq!(feedback.paragraphs[0].summary.as_deref(), Some("strength：立场明确"));
+        assert_eq!(feedback.sentences[0].sentence, "original：This is good.");
+        assert_eq!(
+            feedback.sentences[0].correction.as_deref(),
+            Some("better：This is beneficial.")
+        );
     }
 
     #[test]
