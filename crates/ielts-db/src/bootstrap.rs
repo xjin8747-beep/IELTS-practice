@@ -8,7 +8,7 @@ use rusqlite::{params, Connection, OptionalExtension, Transaction, TransactionBe
 
 use crate::{DbResult, NS_AI};
 
-const MARKER: &str = "combined_product_defaults.2026_08";
+const MARKER: &str = "combined_product_defaults.2026_08_sentence_feedback";
 
 pub const TASK1_EXAMINER_PROMPT: &str = r#"You are a strict, evidence-based IELTS Academic Writing Task 1 examiner. Assess only the submitted task and response. Apply the four IELTS criteria independently: Task Achievement, Coherence and Cohesion, Lexical Resource, and Grammatical Range and Accuracy. In the JSON score object, taskResponse represents Task Achievement.
 
@@ -17,7 +17,7 @@ For Task Achievement, verify that the response addresses the actual visual or pr
 Return valid JSON only, without markdown or text outside JSON. Use exactly this structure:
 {"score":{"overall":0,"taskResponse":0,"coherence":0,"lexical":0,"grammar":0},"feedback":{"overall":"","plan":[],"paragraphs":[{"paragraphIndex":1,"summary":"","issues":[]}],"sentences":[{"sentence":"","correction":"","kind":"major_grammar"}],"rewrites":[]}}
 
-Write explanations in clear Chinese while preserving useful English examples. feedback.overall must justify every criterion band and identify the highest-priority weaknesses. feedback.plan must contain concrete practice steps. Include every essay paragraph in feedback.paragraphs. Put the most important sentence-level errors in feedback.sentences and classify kind as task, coherence, lexical, major_grammar, minor_grammar, spelling, or punctuation. Rewrites must preserve the original data and meaning; never invent chart values, features, or a different response."#;
+Write explanations in clear Chinese while preserving useful English examples. feedback.overall must justify every criterion band and identify the highest-priority weaknesses. feedback.plan must contain concrete practice steps. Include every essay paragraph in feedback.paragraphs. feedback.sentences must contain 3 to 6 representative sentence-level observations and must never be empty. If the response has few outright errors, select sentences that can be made more precise, concise, natural, or better linked; put the original sentence in sentence and a concrete improved version in correction. Classify kind as task, coherence, lexical, major_grammar, minor_grammar, spelling, or punctuation. feedback.rewrites must contain 2 to 4 targeted improved examples. Rewrites must preserve the original data and meaning; never invent chart values, features, or a different response."#;
 
 pub const TASK2_EXAMINER_PROMPT: &str = r#"You are a strict, evidence-based IELTS Academic Writing Task 2 examiner. Assess only the submitted question and essay. Apply the four IELTS criteria independently: Task Response, Coherence and Cohesion, Lexical Resource, and Grammatical Range and Accuracy.
 
@@ -26,7 +26,7 @@ For Task Response, verify that every part of the question is answered, the posit
 Return valid JSON only, without markdown or text outside JSON. Use exactly this structure:
 {"score":{"overall":0,"taskResponse":0,"coherence":0,"lexical":0,"grammar":0},"feedback":{"overall":"","plan":[],"paragraphs":[{"paragraphIndex":1,"summary":"","issues":[]}],"sentences":[{"sentence":"","correction":"","kind":"major_grammar"}],"rewrites":[]}}
 
-Write explanations in clear Chinese while preserving useful English examples. feedback.overall must justify every criterion band and identify the highest-priority weaknesses. feedback.plan must contain concrete practice steps. Include every essay paragraph in feedback.paragraphs. Put the most important sentence-level errors in feedback.sentences and classify kind as task, coherence, lexical, major_grammar, minor_grammar, spelling, or punctuation. Rewrites must preserve the writer position and core ideas; improve expression and development without inventing a different argument."#;
+Write explanations in clear Chinese while preserving useful English examples. feedback.overall must justify every criterion band and identify the highest-priority weaknesses. feedback.plan must contain concrete practice steps. Include every essay paragraph in feedback.paragraphs. feedback.sentences must contain 3 to 6 representative sentence-level observations and must never be empty. If the essay has few outright errors, select sentences that can be made more precise, concise, natural, or better linked; put the original sentence in sentence and a concrete improved version in correction. Classify kind as task, coherence, lexical, major_grammar, minor_grammar, spelling, or punctuation. feedback.rewrites must contain 2 to 4 targeted improved examples. Rewrites must preserve the writer position and core ideas; improve expression and development without inventing a different argument."#;
 
 /// Install product defaults once without resurrecting anything the user later
 /// edits or deletes. Existing prompt banks and explicit model settings win.
@@ -49,7 +49,7 @@ pub fn ensure_combined_product_defaults(conn: &Connection) -> DbResult<bool> {
         &tx,
         "builtin-ielts-task1-2026-08",
         "task1",
-        "ielts-task1-2026.08",
+        "ielts-task1-2026.08.1",
         TASK1_EXAMINER_PROMPT,
         &now,
     )?;
@@ -57,9 +57,27 @@ pub fn ensure_combined_product_defaults(conn: &Connection) -> DbResult<bool> {
         &tx,
         "builtin-ielts-task2-2026-08",
         "task2",
-        "ielts-task2-2026.08",
+        "ielts-task2-2026.08.1",
         TASK2_EXAMINER_PROMPT,
         &now,
+    )?;
+
+    // Upgrade only the built-in August prompts. User-created prompt IDs remain
+    // untouched, while existing combined-product installs gain guaranteed
+    // sentence-level feedback and rewrite examples.
+    tx.execute(
+        "UPDATE writing_prompts
+         SET version = 'ielts-task1-2026.08.1', body = ?1, updated_at = ?2
+         WHERE id = 'builtin-ielts-task1-2026-08'
+           AND version = 'ielts-task1-2026.08'",
+        params![TASK1_EXAMINER_PROMPT, now],
+    )?;
+    tx.execute(
+        "UPDATE writing_prompts
+         SET version = 'ielts-task2-2026.08.1', body = ?1, updated_at = ?2
+         WHERE id = 'builtin-ielts-task2-2026-08'
+           AND version = 'ielts-task2-2026.08'",
+        params![TASK2_EXAMINER_PROMPT, now],
     )?;
 
     for (key, value_json) in [
@@ -172,6 +190,34 @@ mod tests {
     }
 
     #[test]
+    fn upgrades_august_builtin_prompts_with_required_sentence_feedback() {
+        let mut conn = Connection::open_in_memory().unwrap();
+        migrate(&mut conn).unwrap();
+        let now = chrono::Utc::now().to_rfc3339();
+        conn.execute(
+            "INSERT INTO writing_prompts(
+               id, task_type, version, body, is_active, created_at, updated_at
+             ) VALUES (?1, 'task2', 'ielts-task2-2026.08', 'OLD BODY', 1, ?2, ?2)",
+            params!["builtin-ielts-task2-2026-08", now],
+        )
+        .unwrap();
+
+        assert!(ensure_combined_product_defaults(&conn).unwrap());
+        let (version, body): (String, String) = conn
+            .query_row(
+                "SELECT version, body FROM writing_prompts
+                 WHERE id = 'builtin-ielts-task2-2026-08'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .unwrap();
+
+        assert_eq!(version, "ielts-task2-2026.08.1");
+        assert!(body.contains("must contain 3 to 6"));
+        assert!(body.contains("must never be empty"));
+    }
+
+    #[test]
     fn upgrades_only_retired_deepseek_model_names() {
         let mut conn = Connection::open_in_memory().unwrap();
         migrate(&mut conn).unwrap();
@@ -215,3 +261,4 @@ mod tests {
         assert!(openai.contains("gpt-4o-mini"));
     }
 }
+
