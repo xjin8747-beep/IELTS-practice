@@ -79,7 +79,7 @@ impl WritingEvaluationService {
             Err(error) => (Err(error), None, None),
         };
 
-        let result = store.finish(&prepared, score, feedback, review_error)￿;
+        let result = store.finish(&prepared, score, feedback, review_error)?;
         emit_all(
             events,
             result
@@ -146,7 +146,7 @@ fn parse_output(content: &str) -> Result<ProviderOutput, ProviderError> {
         value
             .get("score")
             .cloned()
-            .ok_or_else(|| provider_error("AI evaluation score is missing", false))￿,
+            .ok_or_else(|| provider_error("AI evaluation score is missing", false))?,
     )
     .map_err(|error| provider_error(format!("AI evaluation score invalid: {error}"), false))?;
     validate_score(&score)?;
