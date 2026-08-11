@@ -176,7 +176,10 @@ fn normalize_feedback_strings(feedback: &mut serde_json::Value) {
     normalize_string_array(object.get_mut("plan"));
     normalize_string_array(object.get_mut("rewrites"));
 
-    if let Some(paragraphs) = object.get_mut("paragraphs").and_then(|value| value.as_array_mut()) {
+    if let Some(paragraphs) = object
+        .get_mut("paragraphs")
+        .and_then(|value| value.as_array_mut())
+    {
         for paragraph in paragraphs {
             let Some(paragraph) = paragraph.as_object_mut() else {
                 continue;
@@ -186,7 +189,10 @@ fn normalize_feedback_strings(feedback: &mut serde_json::Value) {
         }
     }
 
-    if let Some(sentences) = object.get_mut("sentences").and_then(|value| value.as_array_mut()) {
+    if let Some(sentences) = object
+        .get_mut("sentences")
+        .and_then(|value| value.as_array_mut())
+    {
         for sentence in sentences {
             let Some(sentence) = sentence.as_object_mut() else {
                 continue;
@@ -198,10 +204,7 @@ fn normalize_feedback_strings(feedback: &mut serde_json::Value) {
     }
 }
 
-fn normalize_string_field(
-    object: &mut serde_json::Map<String, serde_json::Value>,
-    field: &str,
-) {
+fn normalize_string_field(object: &mut serde_json::Map<String, serde_json::Value>, field: &str) {
     let Some(value) = object.get_mut(field) else {
         return;
     };
@@ -637,9 +640,15 @@ mod tests {
         .unwrap();
 
         let feedback = output.feedback.unwrap();
-        assert_eq!(feedback.overall.as_deref(), Some("TR：观点清楚；CC：衔接自然"));
+        assert_eq!(
+            feedback.overall.as_deref(),
+            Some("CC：衔接自然；TR：观点清楚")
+        );
         assert_eq!(feedback.plan, vec!["step：练习具体例证"]);
-        assert_eq!(feedback.paragraphs[0].summary.as_deref(), Some("strength：立场明确"));
+        assert_eq!(
+            feedback.paragraphs[0].summary.as_deref(),
+            Some("strength：立场明确")
+        );
         assert_eq!(feedback.sentences[0].sentence, "original：This is good.");
         assert_eq!(
             feedback.sentences[0].correction.as_deref(),
