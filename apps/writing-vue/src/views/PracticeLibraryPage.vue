@@ -553,12 +553,6 @@ watch(selectedHistoryType, () => {
   nextTick(updateSegmentedIndicators)
 })
 
-watch(filteredReadingAssets, () => {
-  if (activeView.value === 'browse') {
-    scheduleBrowsePositionRestore()
-  }
-})
-
 async function loadReadingData() {
   await Promise.all([
     loadAssets(),
