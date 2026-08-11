@@ -153,7 +153,8 @@ fn resolve_api_key(vault: &AppVault, secret_ref: &SecretRef) -> DbResult<String>
     vault
         .0
         .get_secret_by_ref(&secret_ref.ref_id)?
-        .filter(|secret| !secret.trim().is_empty())
+        .map(|secret| secret.trim().to_string())
+        .filter(|secret| !secret.is_empty())
         .ok_or_else(|| DbError::Validation(API_KEY_REQUIRED_ON_THIS_DEVICE.into()))
 }
 
