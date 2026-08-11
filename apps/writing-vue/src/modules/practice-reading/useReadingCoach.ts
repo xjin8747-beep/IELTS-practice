@@ -10,6 +10,7 @@ type LlmReviewStatus = 'idle' | 'running' | 'success' | 'failed'
 export type ReadingCoachOptions = {
   submissionSource?: unknown
   assetIdSource?: unknown
+  payloadSource?: unknown
   setSubmission?: (next: AnyRecord) => void
   readCoachEnabled?: () => boolean
   readSelectedContext?: () => AnyRecord | null | undefined
@@ -365,6 +366,7 @@ export function useReadingCoach(options: ReadingCoachOptions = {}) {
     const surface = String(payloadOptions.surface || (action === 'review_set' ? 'review_workspace' : 'chat_widget')).trim()
     const promptKind = String(payloadOptions.promptKind || 'freeform').trim() || 'freeform'
     const context = refreshSelectedContext()
+    const readingPayload = asRecord(readSource(options.payloadSource))
     return {
       examId: submission.value?.examId || readSource(options.assetIdSource),
       sessionId: submission.value?.sessionId || '',
@@ -377,6 +379,12 @@ export function useReadingCoach(options: ReadingCoachOptions = {}) {
       selectedText: context?.text || '',
       selectedContext: context || null,
       focusQuestionNumbers: resolveCoachFocusQuestionNumbers(context),
+      readingContext: readingPayload ? {
+        passage: readingPayload.passage || null,
+        questionGroups: Array.isArray(readingPayload.questionGroups) ? readingPayload.questionGroups : [],
+        answerKey: readingPayload.answerKey || readingPayload.answers || {},
+        existingExplanations: readingPayload.reviewExplanations || null
+      } : null,
       attemptContext: {
         submitted: true,
         score: submission.value?.coachContext?.score ?? submission.value?.scoreInfo?.percentage ?? null,

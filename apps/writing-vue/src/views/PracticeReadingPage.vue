@@ -731,6 +731,7 @@ const {
   queueAutomaticReviewRefresh
 } = useReadingCoach({
   submissionSource: () => submission.value,
+  payloadSource: () => payload.value,
   setSubmission: (nextSubmission) => {
     submission.value = nextSubmission
   },
