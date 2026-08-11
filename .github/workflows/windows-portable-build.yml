@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: windows-test-installer-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   TAURI_CLI_VERSION: 2.11.4
@@ -42,11 +46,8 @@ jobs:
       - name: Verify combined reading and AI contract
         run: node developer/tests/js/combinedBuildContract.test.mjs
 
-      - name: Install pinned Tauri CLI
-        run: cargo install tauri-cli --version $env:TAURI_CLI_VERSION --locked
-
       - name: Build NSIS and MSI installers
-        run: cargo tauri build --bundles nsis,msi
+        run: npx --yes @tauri-apps/cli@$env:TAURI_CLI_VERSION build --bundles nsis,msi
 
       - name: Create SHA-256 checksums
         shell: pwsh
