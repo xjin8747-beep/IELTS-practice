@@ -51,6 +51,7 @@ pub fn ai_upsert_config(
         )));
     }
 
+    let is_new = cmd.id.is_none();
     let id = cmd.id.unwrap_or_else(|| Uuid::new_v4().to_string());
     let (_, base_url) = normalize_provider(&cmd.provider, cmd.base_url.as_deref());
     let secret_name = ai_secret_name(&id);
@@ -60,7 +61,7 @@ pub fn ai_upsert_config(
         .as_deref()
         .filter(|value| !value.trim().is_empty())
     {
-        let ref_id = match vault.0.set_secret(&secret_name, secret) {
+        let ref_id = match vault.0.set_secret(&secret_name, secret.trim()) {
             Ok(ref_id) => ref_id,
             Err(error) => return CommandResponse::failure(config_error(error)),
         };
@@ -84,14 +85,52 @@ pub fn ai_upsert_config(
     let result = db
         .with_conn(|conn| ielts_db::upsert_ai_config(conn, &config))
         .and_then(|_| {
-            list_ai_configs_with_vault(db.inner(), vault)?
+            let mut saved = list_ai_configs_with_vault(db.inner(), vault)?
                 .into_iter()
                 .find(|item| item.id == config.id)
-                .ok_or_else(|| DbError::Message("AI config disappeared after save".into()))
+                .ok_or_else(|| DbError::Message("AI config disappeared after save".into()))?;
+            // A freshly pasted credential is the configuration the user just
+            // chose. Promote it explicitly instead of selecting a random UUID
+            // lexicographically when older failed attempts are still present.
+            if should_promote_new_config(is_new, &saved) {
+                db.with_conn(|conn| ielts_db::set_default_ai_config(conn, Some(&saved)))?;
+                saved.is_default = true;
+            }
+            Ok(saved)
         });
     match result {
         Ok(config) => CommandResponse::success(config),
         Err(error) => CommandResponse::failure(config_error(error)),
+    }
+}
+
+fn should_promote_new_config(is_new: bool, config: &AiConfigDto) -> bool {
+    is_new && config.is_enabled && config.has_secret
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn config(enabled: bool, has_secret: bool) -> AiConfigDto {
+        AiConfigDto {
+            id: "new-config".into(),
+            config_name: "DeepSeek".into(),
+            provider: "deepseek".into(),
+            base_url: "https://api.deepseek.com".into(),
+            default_model: "deepseek-v4-pro".into(),
+            is_default: false,
+            is_enabled: enabled,
+            has_secret,
+        }
+    }
+
+    #[test]
+    fn a_new_usable_config_becomes_default_but_updates_do_not_steal_default() {
+        assert!(should_promote_new_config(true, &config(true, true)));
+        assert!(!should_promote_new_config(false, &config(true, true)));
+        assert!(!should_promote_new_config(true, &config(false, true)));
+        assert!(!should_promote_new_config(true, &config(true, false)));
     }
 }
 
