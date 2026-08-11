@@ -46,6 +46,9 @@ jobs:
       - name: Verify combined reading and AI contract
         run: node developer/tests/js/combinedBuildContract.test.mjs
 
+      - name: Verify Windows resource checksum handling
+        run: cargo test -p ielts-db seed_accepts_windows_line_endings_for_lf_checksums
+
       - name: Build NSIS and MSI installers
         run: npx --yes @tauri-apps/cli@$env:TAURI_CLI_VERSION build --bundles nsis,msi
 

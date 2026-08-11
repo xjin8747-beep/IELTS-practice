@@ -51,4 +51,7 @@ const appState = read('src-tauri/src/app/state.rs')
 assert.ok(appState.includes('IELTS_PRACTICE_DATA_DIR'), 'portable data root must support an override')
 assert.match(appState, /install_dir\.join\("data"\)/, 'Windows study data must stay beside the app')
 
+const readingAssets = read('crates/ielts-db/src/reading/assets.rs')
+assert.ok(readingAssets.includes('resource_text_checksum'), 'Windows CRLF resource packs must validate')
+
 console.log('combined build contract: ok')
