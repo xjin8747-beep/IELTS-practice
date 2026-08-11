@@ -47,4 +47,8 @@ const vault = read('crates/ielts-db/src/secrets/mod.rs')
 assert.ok(vault.includes('keyring::Entry'), 'API keys must use the OS credential manager')
 assert.ok(vault.includes('skip_serializing'), 'legacy secret bytes must never be serialized')
 
+const appState = read('src-tauri/src/app/state.rs')
+assert.ok(appState.includes('IELTS_PRACTICE_DATA_DIR'), 'portable data root must support an override')
+assert.match(appState, /install_dir\.join\("data"\)/, 'Windows study data must stay beside the app')
+
 console.log('combined build contract: ok')
