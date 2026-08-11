@@ -105,6 +105,21 @@ impl AppVault {
 }
 
 fn default_app_data_dir() -> PathBuf {
+    if let Some(explicit) = std::env::var_os("IELTS_PRACTICE_DATA_DIR") {
+        if !explicit.is_empty() {
+            return PathBuf::from(explicit);
+        }
+    }
+
+    // Windows builds are intentionally portable: keep all study data beside
+    // the installed executable instead of spilling it into AppData.
+    #[cfg(target_os = "windows")]
+    if let Ok(executable) = std::env::current_exe() {
+        if let Some(install_dir) = executable.parent() {
+            return install_dir.join("data");
+        }
+    }
+
     if let Some(base) = std::env::var_os("APPDATA") {
         return PathBuf::from(base).join("IELTS Practice");
     }
