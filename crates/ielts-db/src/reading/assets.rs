@@ -106,7 +106,7 @@ pub fn seed_builtin_reading_pack(
         }
         let payload_path = pack_dir.join(relative);
         let raw = fs::read_to_string(&payload_path)?;
-        let raw_hash = hex::encode(Sha256::digest(raw.as_bytes()));
+        let raw_hash = resource_text_checksum(&raw);
         if raw_hash != entry.sha256 {
             return Err(DbError::Validation(format!(
                 "reading resource checksum mismatch: {}",
@@ -152,6 +152,14 @@ pub fn seed_builtin_reading_pack(
         declared: manifest.asset_count,
         imported: manifest.entries.len(),
     })
+}
+
+fn resource_text_checksum(raw: &str) -> String {
+    // Git may materialize bundled JSON with CRLF on Windows even though the
+    // manifest was generated from LF source files. Treat line endings as a
+    // transport detail while still rejecting every substantive byte change.
+    let normalized = raw.replace("\r\n", "\n").replace('\r', "\n");
+    hex::encode(Sha256::digest(normalized.as_bytes()))
 }
 
 pub fn upsert_practice_asset(conn: &Connection, asset: &PracticeAssetV2) -> DbResult<()> {
@@ -506,6 +514,43 @@ mod resource_pack_tests {
                 .payload["answerKey"]["q1"],
             "A"
         );
+    }
+
+    #[test]
+    fn seed_accepts_windows_line_endings_for_lf_checksums() {
+        let temp = tempfile::tempdir().unwrap();
+        let pack = temp.path().join("reading");
+        fs::create_dir_all(pack.join("payloads")).unwrap();
+        let lf = "{\n  \"examId\": \"p1-crlf\",\n  \"answerKey\": {\"q1\": \"A\"}\n}\n";
+        fs::write(
+            pack.join("payloads/p1-crlf.json"),
+            lf.replace('\n', "\r\n"),
+        )
+        .unwrap();
+        let manifest = json!({
+            "schemaVersion": 1,
+            "packId": "windows-pack",
+            "assetCount": 1,
+            "entries": [{
+                "examId": "p1-crlf",
+                "file": "payloads/p1-crlf.json",
+                "title": "Windows line endings",
+                "category": "P1",
+                "difficulty": null,
+                "frequency": "low",
+                "sha256": hex::encode(Sha256::digest(lf.as_bytes()))
+            }]
+        });
+        fs::write(
+            pack.join("manifest.json"),
+            serde_json::to_string_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        let mut conn =
+            open_connection(&DbOpenOptions::create(temp.path().join("test.db"))).unwrap();
+        migrate(&mut conn).unwrap();
+        assert_eq!(seed_builtin_reading_pack(&conn, &pack).unwrap().imported, 1);
     }
 }
 
