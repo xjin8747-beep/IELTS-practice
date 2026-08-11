@@ -51,6 +51,7 @@ jobs:
       - name: Verify Rust formatting and AI unit tests
         run: |
           cargo fmt --all -- --check
+          npm --prefix apps/writing-vue run build
           cargo test -p ielts-db -p ielts-application -p ielts-practice-tauri --lib
 
       - name: Verify Windows resource checksum handling
