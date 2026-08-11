@@ -1816,7 +1816,15 @@ function readSelectedContext() {
     ? String(selection.toString() || '').trim()
     : ''
   if (!text) {
-    return null
+    const activeQuestionNumber = normalizeSelectedQuestionNumber(activeQuestionId.value)
+    return activeQuestionNumber
+      ? {
+          text: '',
+          scope: 'question',
+          questionNumbers: [activeQuestionNumber],
+          paragraphLabels: []
+        }
+      : null
   }
   const element = resolveSelectionElement(selection)
   const questionNumbers = collectSelectedQuestionNumbers(element)
