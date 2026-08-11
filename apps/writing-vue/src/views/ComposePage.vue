@@ -693,13 +693,21 @@ async function submitEssay() {
 
     router.push({
       name: 'Evaluating',
-      params: { sessionId: result.sessionId }
+      params: { sessionId: result.sessionId },
+      query: { taskType: payload.task_type }
     })
   } catch (err) {
     console.error('提交失败:', err)
     if (err?.attemptId) {
       stopAutoSave()
-      await router.push({ name: 'Evaluating', params: { sessionId: err.attemptId }, query: { startError: err.code || 'start_failed' } })
+      await router.push({
+        name: 'Evaluating',
+        params: { sessionId: err.attemptId },
+        query: {
+          startError: err.code || 'start_failed',
+          taskType: payload.task_type
+        }
+      })
       return
     }
     // Prefer startEvaluation Chinese message over bare code mapping
