@@ -22,7 +22,7 @@ async function main() {
   );
 
   assert.strictEqual(
-    providerForm.isProviderDefaultUrl('deepseek', 'https://api.deepseek.com/v1/'),
+    providerForm.isProviderDefaultUrl('deepseek', 'https://api.deepseek.com/'),
     true,
     'default URL detection should ignore trailing slash'
   );
@@ -33,7 +33,7 @@ async function main() {
       currentBaseUrl: 'https://api.openai.com/v1',
       isLinked: true
     }),
-    'https://api.deepseek.com/v1',
+    'https://api.deepseek.com',
     'linked form should switch to next provider default URL'
   );
 

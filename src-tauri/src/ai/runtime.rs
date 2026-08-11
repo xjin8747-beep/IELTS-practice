@@ -50,12 +50,7 @@ impl AiRuntime {
 #[async_trait]
 impl LanguageModel for AiRuntime {
     async fn complete(&self, request: CompletionRequest) -> Result<CompletionResponse, ModelError> {
-        let body = json!({
-            "model": self.config.model,
-            "temperature": request.temperature,
-            "response_format": { "type": "json_object" },
-            "messages": request.messages
-        });
+        let body = completion_request_body(&self.config, &request);
         let (envelope, latency_ms): (ChatResponse, _) = self
             .post_chat_completion(&body, "AI response envelope invalid")
             .await?;
@@ -78,12 +73,51 @@ impl LanguageModel for AiRuntime {
 #[async_trait]
 impl AgentModel for AiRuntime {
     async fn respond(&self, request: AgentModelRequest) -> Result<AgentModelResponse, ModelError> {
-        let body = agent_request_body(&self.config.model, &request);
+        let mut body = agent_request_body(&self.config.model, &request);
+        // The agent adapter does not replay DeepSeek reasoning_content between
+        // tool calls, so opt out of thinking mode for a valid multi-turn tool
+        // protocol. Normal writing evaluation can still use high reasoning.
+        if is_deepseek(&self.config) {
+            body["thinking"] = json!({ "type": "disabled" });
+        }
         let (envelope, latency_ms): (AgentChatResponse, _) = self
             .post_chat_completion(&body, "AI agent response envelope invalid")
             .await?;
         parse_agent_response(envelope, &self.config.model, latency_ms)
     }
+}
+
+fn completion_request_body(config: &AiProviderConfig, request: &CompletionRequest) -> Value {
+    let mut body = json!({
+        "model": config.model,
+        "temperature": request.temperature,
+        "max_tokens": request.max_tokens.clamp(64, 65_536),
+        "response_format": { "type": "json_object" },
+        "messages": request.messages
+    });
+    if is_deepseek(config) {
+        body["thinking"] = json!({
+            "type": if request.thinking { "enabled" } else { "disabled" }
+        });
+        if request.thinking {
+            body["reasoning_effort"] = Value::String(
+                request
+                    .reasoning_effort
+                    .as_deref()
+                    .unwrap_or("high")
+                    .to_string(),
+            );
+        }
+    }
+    body
+}
+
+fn is_deepseek(config: &AiProviderConfig) -> bool {
+    config.model.to_ascii_lowercase().starts_with("deepseek-")
+        || config
+            .base_url
+            .to_ascii_lowercase()
+            .contains("api.deepseek.com")
 }
 
 impl AiRuntime {
@@ -329,15 +363,44 @@ mod tests {
         let request = CompletionRequest {
             messages: vec![ielts_application::ChatMessage::new("user", "hello")],
             temperature: 0.2,
+            max_tokens: 4096,
+            thinking: true,
+            reasoning_effort: Some("high".into()),
         };
-        let body = json!({
-            "model": "fake-model",
-            "temperature": request.temperature,
-            "response_format": { "type": "json_object" },
-            "messages": request.messages
-        });
+        let config = AiProviderConfig {
+            provider: "openai-compatible".into(),
+            base_url: "https://api.deepseek.com".into(),
+            model: "deepseek-v4-pro".into(),
+            secret_name: "test".into(),
+            timeout: Duration::from_secs(5),
+        };
+        let body = completion_request_body(&config, &request);
         assert_eq!(body["response_format"]["type"], "json_object");
+        assert_eq!(body["max_tokens"], 4096);
+        assert_eq!(body["thinking"]["type"], "enabled");
+        assert_eq!(body["reasoning_effort"], "high");
         assert!(body.get("tools").is_none());
+    }
+
+    #[test]
+    fn non_deepseek_completion_omits_provider_specific_thinking_fields() {
+        let request = CompletionRequest {
+            messages: vec![ielts_application::ChatMessage::new("user", "hello")],
+            temperature: 0.2,
+            max_tokens: 4096,
+            thinking: true,
+            reasoning_effort: Some("high".into()),
+        };
+        let config = AiProviderConfig {
+            provider: "openai-compatible".into(),
+            base_url: "https://api.openai.com/v1".into(),
+            model: "gpt-4.1-mini".into(),
+            secret_name: "test".into(),
+            timeout: Duration::from_secs(5),
+        };
+        let body = completion_request_body(&config, &request);
+        assert!(body.get("thinking").is_none());
+        assert!(body.get("reasoning_effort").is_none());
     }
 
     #[test]

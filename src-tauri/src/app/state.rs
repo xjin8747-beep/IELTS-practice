@@ -4,7 +4,10 @@ use std::sync::Mutex;
 
 use serde::Serialize;
 
-use ielts_db::{migrate, open_connection, DbOpenOptions, DbResult, SecretVault};
+use ielts_db::{
+    ensure_combined_product_defaults, migrate, open_connection, DbOpenOptions, DbResult,
+    SecretVault,
+};
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,6 +81,7 @@ impl AppDb {
         let path = paths.v2_db_path();
         let mut conn = open_connection(&DbOpenOptions::create(&path))?;
         migrate(&mut conn)?;
+        ensure_combined_product_defaults(&conn)?;
         Ok(Self {
             conn: Mutex::new(conn),
             path,

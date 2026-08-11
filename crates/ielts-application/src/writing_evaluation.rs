@@ -123,6 +123,9 @@ async fn evaluate_language_model<M: LanguageModel>(
                 ChatMessage::new("user", prompt),
             ],
             temperature: prepared.temperature,
+            max_tokens: 12_288,
+            thinking: true,
+            reasoning_effort: Some("high".into()),
         })
         .await?;
     parse_output(&response.content)

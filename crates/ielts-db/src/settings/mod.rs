@@ -422,7 +422,14 @@ fn looks_like_secret_payload(namespace: &str, key: &str, value: &Value) -> bool 
     }
     if let Some(s) = value.as_str() {
         // Heuristic: long opaque strings under ai namespace
-        if namespace == NS_AI && s.len() >= 20 && !s.contains(' ') {
+        // `defaultConfigId` is an opaque UUID, not credential material.  It is
+        // intentionally allow-listed so automatic default selection cannot be
+        // blocked by the plaintext-secret guard.
+        if namespace == NS_AI
+            && key != AI_DEFAULT_ID
+            && s.len() >= 20
+            && !s.contains(' ')
+        {
             return true;
         }
     }
@@ -533,9 +540,14 @@ mod ai_config_tests {
     #[test]
     fn default_config_drives_the_single_runtime_settings() {
         let conn = connection();
-        let value = config("primary");
+        let value = config("48b302e4-3d8e-4e77-a743-9f70bc5b7e84");
         upsert_ai_config(&conn, &value).unwrap();
-        put_secret_ref(&conn, "ai.config.primary.api_key", "keyring:primary").unwrap();
+        put_secret_ref(
+            &conn,
+            "ai.config.48b302e4-3d8e-4e77-a743-9f70bc5b7e84.api_key",
+            "keyring:primary",
+        )
+        .unwrap();
         set_default_ai_config(&conn, Some(&value)).unwrap();
         assert_eq!(
             get_setting(&conn, NS_AI, "provider")
@@ -557,7 +569,29 @@ mod ai_config_tests {
                 .unwrap()
                 .unwrap()
                 .value,
-            Value::String("ai.config.primary.api_key".into())
+            Value::String(
+                "ai.config.48b302e4-3d8e-4e77-a743-9f70bc5b7e84.api_key".into()
+            )
         );
+    }
+
+    #[test]
+    fn long_ai_values_are_still_rejected_unless_they_are_default_config_ids() {
+        let conn = connection();
+        upsert_setting(
+            &conn,
+            NS_AI,
+            AI_DEFAULT_ID,
+            &Value::String("48b302e4-3d8e-4e77-a743-9f70bc5b7e84".into()),
+        )
+        .unwrap();
+
+        assert!(upsert_setting(
+            &conn,
+            NS_AI,
+            "untrustedOpaqueValue",
+            &Value::String("sk-this-still-looks-like-secret-material".into()),
+        )
+        .is_err());
     }
 }

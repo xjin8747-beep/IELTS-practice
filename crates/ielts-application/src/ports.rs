@@ -30,6 +30,14 @@ impl ChatMessage {
 pub struct CompletionRequest {
     pub messages: Vec<ChatMessage>,
     pub temperature: f32,
+    /// Bound structured feedback so a provider cannot run until its context
+    /// ceiling or truncate JSON at an arbitrary provider default.
+    pub max_tokens: u32,
+    /// DeepSeek V4 supports an explicit thinking toggle. Other OpenAI-compatible
+    /// providers ignore this product hint at the runtime adapter boundary.
+    pub thinking: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning_effort: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

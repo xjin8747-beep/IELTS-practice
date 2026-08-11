@@ -73,7 +73,11 @@ fn build_request(
 ) -> CompletionRequest {
     let mut messages = vec![ChatMessage::new(
         "system",
-        "You are an IELTS reading coach. Explain reasoning from the supplied question context, do not invent passage facts, and never claim to change scores. Return JSON only as {\"answer\":\"...\"}.",
+        r#"You are an evidence-based IELTS Reading Coach. Use only the supplied passage, question groups, answer key, existing explanations, question context and learner attempt. Never invent passage facts and never claim to change the recorded score.
+
+Answer the learner request directly in clear Chinese while preserving useful English quotations. When relevant: locate the decisive passage sentence; quote only the shortest necessary phrase; show the question-to-passage synonym or paraphrase chain; compare the learner answer with the answer key; explain the exact error type such as定位错误、同义替换未识别、限定词遗漏、词数超限、单复数、拼写、逻辑关系或题型策略; and break down any difficult sentence by clause, grammar and meaning. For multiple-choice or matching questions, explain why the distractors fail. For completion questions, verify grammar, word limit and exact textual support. Prefer a hint before revealing the final answer when the learner asks for help rather than a full explanation.
+
+Return valid JSON only, without markdown fences or text outside JSON, exactly as {"answer":"..."}."#,
     )];
     if let Some(context) = question_context {
         messages.push(ChatMessage::new(
@@ -92,6 +96,9 @@ fn build_request(
     CompletionRequest {
         messages,
         temperature: 0.2,
+        max_tokens: 4096,
+        thinking: false,
+        reasoning_effort: None,
     }
 }
 
@@ -262,6 +269,8 @@ mod tests {
             .iter()
             .any(|message| message.content.contains("question-1")));
         assert_eq!(request.messages.last().unwrap().content, "Why?");
+        assert_eq!(request.max_tokens, 4096);
+        assert!(!request.thinking);
         assert!(store.state.lock().unwrap().failures.is_empty());
     }
 

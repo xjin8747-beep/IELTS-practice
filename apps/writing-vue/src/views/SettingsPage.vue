@@ -814,9 +814,9 @@ const apiForm = ref({
   id: null,
   config_name: 'DeepSeek',
   provider: 'deepseek',
-  base_url: 'https://api.deepseek.com/v1',
+  base_url: 'https://api.deepseek.com',
   api_key: '',
-  default_model: 'deepseek-chat'
+  default_model: 'deepseek-v4-pro'
 })
 
 const promptEntries = ref([])
@@ -1060,9 +1060,9 @@ function resetApiForm() {
     id: null,
     config_name: 'DeepSeek',
     provider: 'deepseek',
-    base_url: 'https://api.deepseek.com/v1',
+    base_url: 'https://api.deepseek.com',
     api_key: '',
-    default_model: 'deepseek-chat'
+    default_model: 'deepseek-v4-pro'
   }
   isApiFormUrlLinked.value = true
 }

@@ -16,7 +16,7 @@ const API_KEY_REQUIRED_ON_THIS_DEVICE: &str =
 fn provider_defaults(provider: &str) -> (&'static str, &'static str) {
     match provider.trim().to_ascii_lowercase().as_str() {
         "openrouter" => ("https://openrouter.ai/api/v1", "openai-compatible"),
-        "deepseek" => ("https://api.deepseek.com/v1", "openai-compatible"),
+        "deepseek" => ("https://api.deepseek.com", "openai-compatible"),
         "openai" => (DEFAULT_BASE_URL, "openai-compatible"),
         _ => (DEFAULT_BASE_URL, "openai-compatible"),
     }
@@ -196,7 +196,7 @@ mod tests {
         for (provider, expected) in [
             ("openai", "https://api.openai.com/v1"),
             ("openrouter", "https://openrouter.ai/api/v1"),
-            ("deepseek", "https://api.deepseek.com/v1"),
+            ("deepseek", "https://api.deepseek.com"),
         ] {
             let (runtime_provider, base_url) = normalize_provider(provider, None);
             assert_eq!(runtime_provider, "openai-compatible");

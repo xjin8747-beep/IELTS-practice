@@ -28,7 +28,23 @@ for (const field of ['passage', 'questionGroups', 'answerKey', 'existingExplanat
 
 const settings = read('apps/writing-vue/src/views/SettingsPage.vue')
 assert.match(settings, /provider:\s*'deepseek'/)
-assert.match(settings, /default_model:\s*'deepseek-chat'/)
+assert.match(settings, /default_model:\s*'deepseek-v4-pro'/)
+
+const bootstrap = read('crates/ielts-db/src/bootstrap.rs')
+for (const expected of [
+  'TASK1_EXAMINER_PROMPT',
+  'TASK2_EXAMINER_PROMPT',
+  'deepseek-v4-pro',
+  'temperature_task1',
+  'temperature_task2'
+]) {
+  assert.ok(bootstrap.includes(expected), `combined defaults must include ${expected}`)
+}
+
+const aiRuntime = read('src-tauri/src/ai/runtime.rs')
+for (const expected of ['max_tokens', 'reasoning_effort', '"enabled"', '"disabled"']) {
+  assert.ok(aiRuntime.includes(expected), `DeepSeek runtime must include ${expected}`)
+}
 
 const writingPolicy = read('crates/ielts-db/src/writing/eval_resolve.rs')
 for (const criterion of [
