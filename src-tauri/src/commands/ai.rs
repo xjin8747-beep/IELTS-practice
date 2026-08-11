@@ -184,6 +184,9 @@ pub async fn ai_test_provider(
                 ChatMessage::new("user", "Return exactly {\"ok\":true}."),
             ],
             temperature: 0.0,
+            max_tokens: 128,
+            thinking: false,
+            reasoning_effort: None,
         })
         .await;
     match response {

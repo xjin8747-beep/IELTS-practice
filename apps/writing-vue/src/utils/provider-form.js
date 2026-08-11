@@ -6,7 +6,7 @@ export const PROVIDER_DEFAULTS = Object.freeze({
     base_url: 'https://openrouter.ai/api/v1'
   },
   deepseek: {
-    base_url: 'https://api.deepseek.com/v1'
+    base_url: 'https://api.deepseek.com'
   }
 })
 

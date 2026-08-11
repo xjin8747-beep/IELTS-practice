@@ -44,7 +44,14 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Verify combined reading and AI contract
-        run: node developer/tests/js/combinedBuildContract.test.mjs
+        run: |
+          node developer/tests/js/combinedBuildContract.test.mjs
+          node developer/tests/ci/writing_provider_form_contract.cjs
+
+      - name: Verify Rust formatting and AI unit tests
+        run: |
+          cargo fmt --all -- --check
+          cargo test -p ielts-db -p ielts-application -p ielts-practice-tauri --lib
 
       - name: Verify Windows resource checksum handling
         run: cargo test -p ielts-db seed_accepts_windows_line_endings_for_lf_checksums
