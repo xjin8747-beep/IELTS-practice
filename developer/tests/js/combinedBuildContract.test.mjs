@@ -52,6 +52,11 @@ assert.match(
   /import\s*\{\s*normalizeMap\s*\}\s*from\s*['"]@\/utils\/evaluation-result\.js['"]/,
   'evaluation progress must import the payload normalizer it calls'
 )
+assert.match(
+  evaluatingPage,
+  /function\s+normalizeTopicId\s*\(/,
+  'evaluation progress must normalize opaque writing topic IDs before use'
+)
 
 const aiCommands = read('src-tauri/src/commands/ai.rs')
 assert.ok(aiCommands.includes('should_promote_new_config'), 'a newly saved usable Key must become default')

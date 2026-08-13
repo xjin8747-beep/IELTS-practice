@@ -159,6 +159,11 @@ const currentDisplayLength = ref(0)
 let typewriterTimeout = null
 const TYPEWRITER_INTERVAL_MS = 15
 
+function normalizeTopicId(value) {
+  if (value === null || value === undefined) return null
+  return String(value).trim() || null
+}
+
 function prefersReducedMotion() {
   return typeof window !== 'undefined'
     && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
