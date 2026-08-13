@@ -1,3 +1,4 @@
+
 <template>
   <div class="evaluating-page">
     <div class="evaluating-layout">
@@ -283,6 +284,7 @@ function handleEvent(event) {
 }
 
 async function hydrateSessionState() {
+  let draftError = null
   try {
     const { draft } = await getDraft(props.sessionId)
     if (draft) {
@@ -295,6 +297,12 @@ async function hydrateSessionState() {
         word_count: draft.wordCount ?? draft.word_count ?? 0
       }
     }
+  } catch (sessionError) {
+    draftError = sessionError
+    console.warn('读取写作草稿失败:', sessionError)
+  }
+
+  try {
     const state = await evaluate.getSessionState(props.sessionId)
     currentEvaluationId.value = state.evaluationId
     const stateTaskType = normalizeTaskType(
@@ -319,6 +327,17 @@ async function hydrateSessionState() {
     }
   } catch (sessionError) {
     console.warn('读取评测会话状态失败:', sessionError)
+    const code = String(sessionError?.code || 'unknown_error')
+    const message = resolveApiErrorMessage(sessionError, code)
+    error.value = { code, message }
+    appendLog('error', message)
+  }
+
+  if (draftError && !error.value) {
+    const code = String(draftError?.code || 'unknown_error')
+    const message = resolveApiErrorMessage(draftError, code)
+    error.value = { code, message }
+    appendLog('error', message)
   }
 }
 
