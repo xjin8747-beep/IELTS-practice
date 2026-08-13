@@ -10,8 +10,17 @@ use super::{AiProviderConfig, AiRuntime};
 
 const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
 const DEFAULT_TIMEOUT_SECONDS: u64 = 45;
+const DEEPSEEK_FLASH_MODEL: &str = "deepseek-v4-flash";
+const DEEPSEEK_PRO_MODEL: &str = "deepseek-v4-pro";
 const API_KEY_REQUIRED_ON_THIS_DEVICE: &str =
     "当前设备未找到可用 API Key；请在设置中重新填写该配置的 API Key 后再使用";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AiWorkload {
+    ReadingCoach,
+    ReadingReview,
+    WritingEvaluation,
+}
 
 fn provider_defaults(provider: &str) -> (&'static str, &'static str) {
     match provider.trim().to_ascii_lowercase().as_str() {
@@ -158,6 +167,37 @@ fn resolve_api_key(vault: &AppVault, secret_ref: &SecretRef) -> DbResult<String>
         .ok_or_else(|| DbError::Validation(API_KEY_REQUIRED_ON_THIS_DEVICE.into()))
 }
 
+fn is_official_deepseek_endpoint(base_url: &str) -> bool {
+    let normalized = base_url.trim().trim_end_matches('/').to_ascii_lowercase();
+    normalized == "https://api.deepseek.com"
+        || normalized.starts_with("https://api.deepseek.com/")
+}
+
+pub(crate) fn route_provider_config(
+    mut config: AiProviderConfig,
+    workload: AiWorkload,
+) -> AiProviderConfig {
+    // Only the official DeepSeek endpoint receives automatic model names.
+    // OpenRouter and custom OpenAI-compatible providers keep their configured
+    // model because their model identifiers may use a different namespace.
+    if is_official_deepseek_endpoint(&config.base_url) {
+        config.model = match workload {
+            AiWorkload::ReadingCoach => DEEPSEEK_FLASH_MODEL,
+            AiWorkload::ReadingReview | AiWorkload::WritingEvaluation => DEEPSEEK_PRO_MODEL,
+        }
+        .to_string();
+    }
+    config
+}
+
+pub(crate) fn load_provider_config_for_workload(
+    db: &AppDb,
+    vault: &AppVault,
+    workload: AiWorkload,
+) -> DbResult<AiProviderConfig> {
+    load_provider_config(db, vault).map(|config| route_provider_config(config, workload))
+}
+
 pub(crate) fn load_runtime(db: &AppDb, vault: &AppVault) -> DbResult<AiRuntime> {
     let config = load_provider_config(db, vault)?;
     load_runtime_from_provider_config(db, vault, config)
@@ -192,6 +232,16 @@ pub(crate) fn load_runtime_from_provider_config(
 mod tests {
     use super::*;
 
+    fn provider_config(base_url: &str, model: &str) -> AiProviderConfig {
+        AiProviderConfig {
+            provider: "openai-compatible".into(),
+            base_url: base_url.into(),
+            model: model.into(),
+            secret_name: "test-secret".into(),
+            timeout: Duration::from_secs(45),
+        }
+    }
+
     #[test]
     fn named_providers_map_to_openai_compatible_endpoints() {
         for (provider, expected) in [
@@ -220,5 +270,39 @@ mod tests {
         let target = select_config_for_test(vec![selected], "selected").unwrap();
         assert_eq!(target.default_model, "gpt-selected");
         assert!(!target.is_enabled);
+    }
+
+    #[test]
+    fn official_deepseek_routes_regular_reading_to_flash() {
+        let routed = route_provider_config(
+            provider_config("https://api.deepseek.com", "deepseek-v4-pro"),
+            AiWorkload::ReadingCoach,
+        );
+        assert_eq!(routed.model, DEEPSEEK_FLASH_MODEL);
+        assert_eq!(routed.secret_name, "test-secret");
+    }
+
+    #[test]
+    fn official_deepseek_routes_reviews_and_writing_to_pro() {
+        for workload in [AiWorkload::ReadingReview, AiWorkload::WritingEvaluation] {
+            let routed = route_provider_config(
+                provider_config("https://api.deepseek.com/v1/", "deepseek-v4-flash"),
+                workload,
+            );
+            assert_eq!(routed.model, DEEPSEEK_PRO_MODEL);
+            assert_eq!(routed.secret_name, "test-secret");
+        }
+    }
+
+    #[test]
+    fn non_deepseek_provider_keeps_its_configured_model() {
+        let routed = route_provider_config(
+            provider_config(
+                "https://openrouter.ai/api/v1",
+                "deepseek/deepseek-chat-v3",
+            ),
+            AiWorkload::WritingEvaluation,
+        );
+        assert_eq!(routed.model, "deepseek/deepseek-chat-v3");
     }
 }

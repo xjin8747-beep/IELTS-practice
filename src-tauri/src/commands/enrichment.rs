@@ -5,7 +5,9 @@ use ielts_domain::dto::CommandResponse;
 use ielts_domain::ErrorEnvelope;
 use tauri::State;
 
-use crate::ai::load_runtime;
+use crate::ai::{
+    load_provider_config_for_workload, load_runtime_from_provider_config, AiWorkload,
+};
 use crate::app::application_store::ApplicationStore;
 use crate::app::state::{AppDb, AppVault};
 use ielts_db::{
@@ -30,6 +32,23 @@ fn map_err(err: ielts_db::DbError) -> ErrorEnvelope {
 
 fn map_application_error(error: ApplicationError) -> ErrorEnvelope {
     ErrorEnvelope::new(error.code, error.message, error.retryable)
+}
+
+fn coach_workload(question_context: Option<&serde_json::Value>) -> AiWorkload {
+    let action = question_context
+        .and_then(|context| context.get("action"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    let surface = question_context
+        .and_then(|context| context.get("surface"))
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+
+    if action == "review_set" || surface == "review_workspace" {
+        AiWorkload::ReadingReview
+    } else {
+        AiWorkload::ReadingCoach
+    }
 }
 
 #[tauri::command]
@@ -199,14 +218,50 @@ pub async fn coach_run(
     vault: State<'_, AppVault>,
     cmd: RunCoachCommand,
 ) -> Result<CommandResponse<CoachRunResult>, ErrorEnvelope> {
+    let workload = coach_workload(cmd.question_context.as_ref());
     let store = ApplicationStore::new(&db);
     let result = CoachService::run(&store, cmd, || {
-        load_runtime(&db, &vault)
+        load_provider_config_for_workload(&db, &vault, workload)
+            .and_then(|config| load_runtime_from_provider_config(&db, &vault, config))
             .map_err(|error| ApplicationError::new("enrichment.error", error.to_string(), false))
     })
     .await;
     match result {
         Ok(result) => Ok(CommandResponse::success(result)),
         Err(error) => Ok(CommandResponse::failure(map_application_error(error))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn full_review_uses_pro_workload() {
+        for context in [
+            json!({ "action": "review_set", "surface": "chat_widget" }),
+            json!({ "action": "chat", "surface": "review_workspace" }),
+        ] {
+            assert_eq!(
+                coach_workload(Some(&context)),
+                AiWorkload::ReadingReview
+            );
+        }
+    }
+
+    #[test]
+    fn regular_coach_actions_use_flash_workload() {
+        for action in [
+            "chat",
+            "explain_selection",
+            "locate_evidence",
+            "find_paraphrases",
+            "recommend_drills",
+        ] {
+            let context = json!({ "action": action, "surface": "chat_widget" });
+            assert_eq!(coach_workload(Some(&context)), AiWorkload::ReadingCoach);
+        }
+        assert_eq!(coach_workload(None), AiWorkload::ReadingCoach);
     }
 }

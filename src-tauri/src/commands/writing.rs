@@ -16,7 +16,9 @@ use ielts_domain::ErrorEnvelope;
 use tauri::ipc::Channel;
 use tauri::{AppHandle, Manager, State};
 
-use crate::ai::{load_provider_config, load_runtime_from_provider_config};
+use crate::ai::{
+    load_provider_config, load_runtime_from_provider_config, route_provider_config, AiWorkload,
+};
 use crate::app::application_store::{ApplicationStore, ChannelEventSink};
 use crate::app::state::{AppDb, AppVault};
 use ielts_db::{
@@ -112,6 +114,7 @@ pub async fn writing_start_evaluation(
         Ok(config) => config,
         Err(error) => return Ok(CommandResponse::failure(map_ai_not_configured(error))),
     };
+    let config = route_provider_config(config, AiWorkload::WritingEvaluation);
 
     // Fail closed when no AI is configured. Deterministic is only for explicit offline mode.
     if config.provider == "unconfigured" || config.provider.trim().is_empty() {
