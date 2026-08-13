@@ -46,6 +46,13 @@ for (const expected of ['max_tokens', 'reasoning_effort', '"enabled"', '"disable
   assert.ok(aiRuntime.includes(expected), `DeepSeek runtime must include ${expected}`)
 }
 
+const evaluatingPage = read('apps/writing-vue/src/views/EvaluatingPage.vue')
+assert.match(
+  evaluatingPage,
+  /import\s*\{\s*normalizeMap\s*\}\s*from\s*['"]@\/utils\/evaluation-result\.js['"]/,
+  'evaluation progress must import the payload normalizer it calls'
+)
+
 const aiCommands = read('src-tauri/src/commands/ai.rs')
 assert.ok(aiCommands.includes('should_promote_new_config'), 'a newly saved usable Key must become default')
 assert.ok(aiCommands.includes('secret.trim()'), 'pasted API keys must be trimmed before secure storage')

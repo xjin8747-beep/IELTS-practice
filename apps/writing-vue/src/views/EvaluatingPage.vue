@@ -93,6 +93,7 @@ import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { evaluate, getErrorMessage, resolveApiErrorMessage } from '@/api/client.js'
 import { getDraft } from '@/api/writing-repository.js'
+import { normalizeMap } from '@/utils/evaluation-result.js'
 
 const props = defineProps({
   sessionId: {
