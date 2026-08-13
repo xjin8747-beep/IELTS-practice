@@ -10,6 +10,7 @@ use super::{AiProviderConfig, AiRuntime};
 
 const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
 const DEFAULT_TIMEOUT_SECONDS: u64 = 45;
+const WRITING_EVALUATION_TIMEOUT_SECONDS: u64 = 240;
 const DEEPSEEK_FLASH_MODEL: &str = "deepseek-v4-flash";
 const DEEPSEEK_PRO_MODEL: &str = "deepseek-v4-pro";
 const API_KEY_REQUIRED_ON_THIS_DEVICE: &str =
@@ -186,6 +187,15 @@ pub(crate) fn route_provider_config(
             AiWorkload::ReadingReview | AiWorkload::WritingEvaluation => DEEPSEEK_PRO_MODEL,
         }
         .to_string();
+        if workload == AiWorkload::WritingEvaluation {
+            // A full IELTS review asks the reasoning model for four scores plus
+            // paragraph and sentence feedback. DeepSeek Pro can legitimately
+            // take longer than the short interactive-coach timeout while it
+            // generates and transfers the larger JSON response.
+            config.timeout = config
+                .timeout
+                .max(Duration::from_secs(WRITING_EVALUATION_TIMEOUT_SECONDS));
+        }
     }
     config
 }
@@ -291,6 +301,14 @@ mod tests {
             );
             assert_eq!(routed.model, DEEPSEEK_PRO_MODEL);
             assert_eq!(routed.secret_name, "test-secret");
+            if workload == AiWorkload::WritingEvaluation {
+                assert_eq!(
+                    routed.timeout,
+                    Duration::from_secs(WRITING_EVALUATION_TIMEOUT_SECONDS)
+                );
+            } else {
+                assert_eq!(routed.timeout, Duration::from_secs(45));
+            }
         }
     }
 
